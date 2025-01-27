@@ -1,18 +1,11 @@
 const express = require("express");
+const jwt = require('jsonwebtoken')
+const  JWT_SECRET ="randomjwtsecret"
 const app = express();
 app.use(express.json());
 
 const users = [];
 
-function generateToken(length = 32) {
-  const characters =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < length; i++) {
-    token += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return token;
-}
 
 app.post("/signup", function (req, res) {
   const userName = req.body.userName;
@@ -39,8 +32,12 @@ app.post("/signin", function (req, res) {
     (u) => u.userName === userName && u.password === password
   );
   if (foundUser) {
-    const token = generateToken();
-    foundUser.token = token;
+    const token = jwt.sign({
+      userName:userName
+    },JWT_SECRET)
+
+    // foundUser.token = token; //not required anymore. because jwt is stateless
+
     res.json({
       token: token,
     });
@@ -51,5 +48,36 @@ app.post("/signin", function (req, res) {
   }
   console.log(users);
 });
+
+app.use(function(req,res,next){
+  const token =req.headers.authorization;
+  if(!token){
+    return res.json({
+      message:"Token is missing"
+    })
+  }
+ const decodedData = jwt.verify(token,JWT_SECRET)
+ if(decodedData.userName){
+  req.userName = decodedData.userName
+  next()
+ }else{
+  return res.json({
+    message:"You are not Logged In"
+  })
+ }
+})
+app.get('/me',function(req,res){
+  const foundUser = users.find((u)=>u.userName===req.userName)
+  if(foundUser){
+    return res.json({
+      userName:foundUser.userName,
+      password:foundUser.password
+    })
+  }else{
+    return res.json({
+      message:"User Not Found"
+    })
+  }
+})
 
 app.listen(3000);
